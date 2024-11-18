@@ -6,7 +6,7 @@ This AI Assistant is a LiveKit & OpenAI powered agent that helps users find movi
 
 ## Features
 
-- **Natural Language Interface**: Users can ask about movies in their city using a conversation with a Realtime agent.
+- **OpenAI Powered Movie Bot**: You can ask about movies in your city using a conversation with a Realtime agent. 
 - **Movie Information**: Provides movie details including:
   - Movie title and genre
   - Rating and runtime
