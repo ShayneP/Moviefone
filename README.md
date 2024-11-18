@@ -1,6 +1,6 @@
 # Moviefone AI Assistant
 
-This AI Assistant is a LiveKit & OpenAI powered agent that helps users find movie showtimes at theaters across Canada.
+This AI Assistant is a [LiveKit](https://github.com/livekit/agents) & [OpenAI](https://github.com/openai/openai-python) powered agent that helps users find movie showtimes at theaters across Canada.
 
 <img src="kramer.png" alt="Moviefone Kramer" width="423" height="340">
 
