@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Any
 import logging
 import asyncio
 import aiohttp
+from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
 
@@ -25,33 +26,25 @@ class Movie:
 
 @dataclass
 class TheatreMovies:
-    theatres: List[Dict[str, Any]]  # List of theatre data with movies
+    theatres: List[Dict[str, Any]]
 
 class MovieAPI:
     def __init__(self):
-        self.api_key = "dcdac5601d864addbc2675a2e96cb1f8"
+        self.api_key = "dcdac5601d864addbc2675a2e96cb1f8" # This is a public API key, so it's not a secret
         self.base_url = "https://apis.cineplex.com/prod/cpx/theatrical/api/v1"
         self.theatres = []
         
         try:
-            # Load theatres data
             with open("theatres.json", "r", encoding='utf-8') as f:
                 data = json.load(f)
-                # Combine all theatre lists into one list for searching
-                if isinstance(data, dict):
-                    if "nearbyTheatres" in data:
-                        self.theatres.extend(data["nearbyTheatres"])
-                        logger.info(f"Loaded {len(data['nearbyTheatres'])} nearby theatres from data.")
-                    if "otherTheatres" in data:
-                        self.theatres.extend(data["otherTheatres"])
-                        logger.info(f"Loaded {len(data['otherTheatres'])} other theatres from data.")
-                    else:
-                        logger.warning("No 'otherTheatres' found in theatres.json.")
+                if isinstance(data, dict) and "nearbyTheatres" in data:
+                    self.theatres.extend(data["nearbyTheatres"])
+                    logger.info(f"Loaded {len(data['nearbyTheatres'])} nearby theatres from data.")
                 elif isinstance(data, list):
                     self.theatres.extend(data)
                     logger.info(f"Loaded {len(data)} theatres from data.")
                 else:
-                    logger.error("Theatres data is not in expected format (neither dict nor list).")
+                    logger.error("Theatres data is not in expected format (neither dict with nearbyTheatres nor list).")
                     raise ValueError("Invalid theatres data format")
                 
                 logger.info(f"Total theatres loaded: {len(self.theatres)}")
@@ -102,7 +95,7 @@ class MovieAPI:
                 async with session.get(url, params=params, headers=headers) as response:
                     if response.status != 200:
                         logger.error(f"API request failed for theatre {theatre_info['name']} with status {response.status}")
-                        return None  # Return None to indicate failure
+                        return None
                     
                     data = await response.json()
                     movies = []
@@ -145,27 +138,20 @@ class MovieAPI:
                                 showtimes=showtimes
                             ))
                         
-                        # After processing all movies, log the results in table format
                         if movies:
-                            log_lines = [
-                                f"\nTheatre: {theatre_info['name']}",
-                                "\n| Movie | Genre | Rating | Runtime | Showtimes |",
-                                "|-------|--------|---------|----------|-----------|"
-                            ]
-                            
+                            table_data = []
                             for movie in movies:
-                                showtimes = ", ".join([
-                                    f"{st.start_time.strftime('%I:%M %p').lstrip('0')}" +
-                                    (" (Sold Out)" if st.is_sold_out else f" ({st.seats_remaining} seats)")
-                                    for st in movie.showtimes
+                                table_data.append([
+                                    movie.title,
+                                    movie.rating
                                 ])
-                                
-                                log_lines.append(
-                                    f"| {movie.title} | {movie.genre} | {movie.rating} | "
-                                    f"{movie.runtime} mins | {showtimes} |"
-                                )
                             
-                            logger.info("\n".join(log_lines) + "\n")
+                            table = tabulate(
+                                table_data,
+                                headers=["Movie", "Rating"],
+                                tablefmt="grid"
+                            )
+                            logger.info(f"\nTheatre: {theatre_info['name']}\n{table}\n")
                         
                         return {
                             "theatre_name": theatre_info["name"],
@@ -173,13 +159,20 @@ class MovieAPI:
                         }
                     except (KeyError, IndexError) as e:
                         logger.error(f"Unexpected API response format for theatre {theatre_info['name']}: {e}")
-                        return None  # Return None to indicate failure
+                        return None 
         except Exception as e:
             logger.error(f"Exception occurred while fetching movies for theatre {theatre_info['name']}: {e}")
-            return None  # Return None to indicate failure
+            return None 
 
     async def get_movies(self, city: str, province: str, date: Optional[datetime] = None) -> TheatreMovies:
-        """Get movies showing at all theatres in the specified location."""
+        """
+        Get movies showing at all theatres in the specified location.
+        
+        Args:
+            city: The city name
+            province: The province code
+            date: Optional datetime object for the show date. If None, defaults to current date.
+        """
         theatres_info = self._get_theatre_info(city, province)
         if not theatres_info:
             raise ValueError(f"No theatres found in {city}, {province}")
@@ -187,12 +180,15 @@ class MovieAPI:
         if date is None:
             date = datetime.now()
         
-        # Fetch movies from all theatres concurrently
+        logger.info(f"Fetching movies for date: {date.strftime('%Y-%m-%d')}")
+        
         tasks = [self._fetch_theatre_movies(theatre, date) for theatre in theatres_info]
         theatre_results = await asyncio.gather(*tasks)
         
-        # Filter out any None results due to failed fetches
         successful_theatre_results = [result for result in theatre_results if result is not None]
         
-        logger.info(f"Successfully fetched movies from {len(successful_theatre_results)} out of {len(theatres_info)} theatres in {city}")
+        logger.info(
+            f"Successfully fetched movies from {len(successful_theatre_results)} out of "
+            f"{len(theatres_info)} theatres in {city} for date {date.strftime('%Y-%m-%d')}"
+        )
         return TheatreMovies(theatres=successful_theatre_results)
