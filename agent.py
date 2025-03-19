@@ -13,7 +13,7 @@ from livekit.agents import (
 )
 from livekit.agents.llm import function_tool
 from livekit.agents.voice import Agent, AgentSession
-from livekit.plugins import deepgram, openai, silero
+from livekit.plugins import cartesia, deepgram, openai, silero
 
 from datetime import datetime
 
@@ -120,7 +120,7 @@ async def entrypoint(ctx: JobContext):
         userdata=userdata,
         stt=deepgram.STT(),
         llm=openai.LLM(),
-        tts=deepgram.TTS(),
+        tts=cartesia.TTS(),
         vad=silero.VAD.load(),
     )
 
